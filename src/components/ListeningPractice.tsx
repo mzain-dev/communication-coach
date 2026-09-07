@@ -146,9 +146,14 @@ export function ListeningPractice({ hasApiKey }: { hasApiKey: boolean }) {
   if (stage === "setup") {
     return (
       <div className="mx-auto flex max-w-lg flex-col gap-4 p-4 pb-24">
-        <div>
-          <h1 className="text-xl font-semibold">Listening Practice</h1>
-          <p className="text-sm text-muted">Describe a topic and we&apos;ll generate content to listen to.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold">Listening Practice</h1>
+            <p className="text-sm text-muted">Describe a topic and we&apos;ll generate content to listen to.</p>
+          </div>
+          <Link href="/listening/history" className="shrink-0 text-sm text-accent">
+            History
+          </Link>
         </div>
 
         <label className="flex flex-col gap-1 text-sm">

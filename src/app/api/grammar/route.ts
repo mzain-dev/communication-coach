@@ -27,3 +27,21 @@ export async function GET() {
 
   return NextResponse.json({ patterns });
 }
+
+/** Clears every logged instance of one recurring-mistake pattern (?type=...) — the Grammar
+ * Tracker only ever shows aggregated patterns, so "delete" here means "clear this pattern"
+ * rather than removing one individual instance. */
+export async function DELETE(request: Request) {
+  let session;
+  try {
+    session = await requireSession();
+  } catch {
+    return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
+  }
+
+  const errorType = new URL(request.url).searchParams.get("type");
+  if (!errorType) return NextResponse.json({ error: "type query param is required." }, { status: 400 });
+
+  await query("DELETE FROM grammar_errors WHERE user_id = ? AND error_type = ?", [session.sub, errorType]);
+  return NextResponse.json({ ok: true });
+}

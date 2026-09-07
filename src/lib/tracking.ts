@@ -73,3 +73,30 @@ export async function recordDailyActivity(userId: string, module: Skill, minutes
     [userId, module, minutesSpent]
   );
 }
+
+/**
+ * Deletes everything a practice session generated elsewhere (feedback, grammar log entries,
+ * level estimate) — called before deleting the session's own row so "delete" actually removes
+ * the data rather than leaving orphaned rows an aggregate view (Grammar Tracker, Progress)
+ * would otherwise keep counting.
+ */
+export async function deleteSessionRelatedData(userId: string, sessionId: number, sessionType: Skill) {
+  await query("DELETE FROM summaries WHERE user_id = ? AND session_id = ? AND session_type = ?", [
+    userId,
+    sessionId,
+    sessionType,
+  ]);
+  if (sessionType !== "listening") {
+    await query("DELETE FROM grammar_errors WHERE user_id = ? AND session_id = ? AND session_type = ?", [
+      userId,
+      sessionId,
+      sessionType,
+    ]);
+  }
+  // level_history has no session_type column — `skill` disambiguates which table session_id refers to.
+  await query("DELETE FROM level_history WHERE user_id = ? AND session_id = ? AND skill = ?", [
+    userId,
+    sessionId,
+    sessionType,
+  ]);
+}

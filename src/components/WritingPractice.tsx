@@ -99,9 +99,14 @@ export function WritingPractice({ hasApiKey }: { hasApiKey: boolean }) {
   if (stage === "pick") {
     return (
       <div className="mx-auto flex max-w-lg flex-col gap-4 p-4 pb-24">
-        <div>
-          <h1 className="text-xl font-semibold">Writing Practice</h1>
-          <p className="text-sm text-muted">Pick a category to get a prompt, or free-write.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold">Writing Practice</h1>
+            <p className="text-sm text-muted">Pick a category to get a prompt, or free-write.</p>
+          </div>
+          <Link href="/writing/history" className="shrink-0 text-sm text-accent">
+            History
+          </Link>
         </div>
 
         <div>

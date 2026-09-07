@@ -17,8 +17,8 @@ export default async function AdminUserProfilePage({ params }: { params: Promise
   const { id } = await params;
 
   const users = await query<
-    { id: number; name: string; email: string; role: string; is_active: number; created_at: string }[]
-  >("SELECT id, name, email, role, is_active, created_at FROM users WHERE id = ?", [id]);
+    { id: number; name: string; email: string; role: string; is_active: number; created_at: string; last_login_at: string | null }[]
+  >("SELECT id, name, email, role, is_active, created_at, last_login_at FROM users WHERE id = ?", [id]);
   const user = users[0];
   if (!user) notFound();
 
@@ -50,7 +50,10 @@ export default async function AdminUserProfilePage({ params }: { params: Promise
         <p className="text-sm text-muted">{user.email}</p>
         <p className="mt-1 text-xs text-muted">
           {user.role} · {user.is_active ? "Active" : "Deactivated"} · joined{" "}
-          {new Date(user.created_at).toLocaleDateString()}
+          {new Date(user.created_at).toLocaleDateString()} ·{" "}
+          {user.last_login_at
+            ? `last login ${new Date(user.last_login_at).toLocaleDateString()}`
+            : "never logged in"}
         </p>
       </div>
 

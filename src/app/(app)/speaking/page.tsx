@@ -18,15 +18,22 @@ const TYPE_DESCRIPTIONS: Record<string, string> = {
 };
 
 export default async function SpeakingPage() {
+  // Excludes the "youtube" scenario type — that's an internal FK placeholder for YouTube-context
+  // calls (Module 9), which get their real system prompt from the video's transcript, not this row.
   const scenarios = await query<Scenario[]>(
-    "SELECT id, name, type, difficulty, is_client_track FROM scenarios ORDER BY id ASC"
+    "SELECT id, name, type, difficulty, is_client_track FROM scenarios WHERE type != 'youtube' ORDER BY id ASC"
   );
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4 p-4 pb-24">
-      <div>
-        <h1 className="text-xl font-semibold">Speaking Practice</h1>
-        <p className="text-sm text-muted">Pick a scenario to start a live voice conversation.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Speaking Practice</h1>
+          <p className="text-sm text-muted">Pick a scenario to start a live voice conversation.</p>
+        </div>
+        <Link href="/speaking/history" className="shrink-0 text-sm text-accent">
+          History
+        </Link>
       </div>
 
       <ul className="flex flex-col gap-2">

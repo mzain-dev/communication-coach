@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 
 export const SESSION_COOKIE = "session";
 const SESSION_DURATION = "7d";
@@ -24,6 +25,14 @@ export async function hashPassword(password: string) {
 
 export async function verifyPassword(password: string, hash: string) {
   return bcrypt.compare(password, hash);
+}
+
+/** A readable one-time password for admin-initiated resets — e.g. "correct-horse-83f2". */
+export function generateTemporaryPassword(): string {
+  const words = ["orbit", "cedar", "flame", "quartz", "meadow", "raven", "delta", "prism", "cobalt", "ember"];
+  const pick = () => words[crypto.randomInt(words.length)];
+  const digits = crypto.randomInt(1000, 9999);
+  return `${pick()}-${pick()}-${digits}`;
 }
 
 export async function createSessionToken(payload: SessionPayload) {

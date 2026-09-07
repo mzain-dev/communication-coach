@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { deleteSessionRelatedData } from "@/lib/tracking";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   let session;
@@ -27,4 +28,26 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   ]);
 
   return NextResponse.json({ entry, summary: summaries[0] ?? null });
+}
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  let session;
+  try {
+    session = await requireSession();
+  } catch {
+    return NextResponse.json({ error: "Unauthenticated" }, { status: 401 });
+  }
+  const { id } = await params;
+  const entryId = Number(id);
+
+  const rows = await query<{ id: number }[]>("SELECT id FROM writing_entries WHERE id = ? AND user_id = ?", [
+    entryId,
+    session.sub,
+  ]);
+  if (!rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  await deleteSessionRelatedData(session.sub, entryId, "writing");
+  await query("DELETE FROM writing_entries WHERE id = ? AND user_id = ?", [entryId, session.sub]);
+
+  return NextResponse.json({ ok: true });
 }

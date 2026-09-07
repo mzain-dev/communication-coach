@@ -10,9 +10,18 @@ export async function GET() {
   }
 
   const users = await query<
-    { id: number; name: string; email: string; role: string; is_active: number; created_at: string; has_api_key: number }[]
+    {
+      id: number;
+      name: string;
+      email: string;
+      role: string;
+      is_active: number;
+      created_at: string;
+      last_login_at: string | null;
+      has_api_key: number;
+    }[]
   >(
-    `SELECT u.id, u.name, u.email, u.role, u.is_active, u.created_at,
+    `SELECT u.id, u.name, u.email, u.role, u.is_active, u.created_at, u.last_login_at,
             (us.encrypted_api_key IS NOT NULL) as has_api_key
      FROM users u
      LEFT JOIN user_settings us ON us.user_id = u.id

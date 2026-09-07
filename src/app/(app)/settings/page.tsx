@@ -17,6 +17,12 @@ export default function SettingsPage() {
   const [preferredModel, setPreferredModel] = useState(DEFAULT_LIVE_MODEL_ID);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   useEffect(() => {
     fetch("/api/settings/api-key")
       .then((res) => res.json())
@@ -47,6 +53,34 @@ export default function SettingsPage() {
       setMessage({ type: "success", text: "API key saved." });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handlePasswordChange(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordMessage(null);
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage({ type: "error", text: "New passwords don't match." });
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const res = await fetch("/api/settings/password", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPasswordMessage({ type: "error", text: data.error ?? "Could not change your password." });
+        return;
+      }
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordMessage({ type: "success", text: "Password changed." });
+    } finally {
+      setChangingPassword(false);
     }
   }
 
@@ -108,6 +142,62 @@ export default function SettingsPage() {
             className="mt-1 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-60"
           >
             {saving ? "Saving…" : "Save"}
+          </button>
+        </form>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="text-sm font-medium">Change password</p>
+
+        <form onSubmit={handlePasswordChange} className="mt-4 flex flex-col gap-3">
+          <label className="flex flex-col gap-1 text-sm">
+            Current password
+            <input
+              type="password"
+              required
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none focus:border-accent"
+              autoComplete="current-password"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            New password
+            <input
+              type="password"
+              required
+              minLength={8}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none focus:border-accent"
+              autoComplete="new-password"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            Confirm new password
+            <input
+              type="password"
+              required
+              minLength={8}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none focus:border-accent"
+              autoComplete="new-password"
+            />
+          </label>
+
+          {passwordMessage && (
+            <p className={`text-sm ${passwordMessage.type === "error" ? "text-danger" : "text-accent"}`}>
+              {passwordMessage.text}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={changingPassword}
+            className="mt-1 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+          >
+            {changingPassword ? "Changing…" : "Change password"}
           </button>
         </form>
       </div>

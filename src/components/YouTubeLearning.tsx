@@ -62,6 +62,12 @@ export function YouTubeLearning({ hasApiKey }: { hasApiKey: boolean }) {
     }
   }
 
+  async function handleDelete(id: number, title: string) {
+    if (!confirm(`Delete "${title}" and its discussion? This can't be undone.`)) return;
+    setHistory((prev) => prev.filter((v) => v.id !== id));
+    await fetch(`/api/youtube/videos/${id}`, { method: "DELETE" });
+  }
+
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4 p-4 pb-24">
       <div>
@@ -125,27 +131,32 @@ export function YouTubeLearning({ hasApiKey }: { hasApiKey: boolean }) {
         ) : (
           <ul className="flex flex-col gap-2">
             {history.map((v) => (
-              <li key={v.id} className="flex items-center justify-between rounded-xl border border-border bg-card p-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{v.title}</p>
-                  <p className="text-xs text-muted">{new Date(v.date_added).toLocaleDateString()}</p>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  {v.linked_speaking_session_id && (
+              <li key={v.id} className="rounded-xl border border-border bg-card p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{v.title}</p>
+                    <p className="text-xs text-muted">{new Date(v.date_added).toLocaleDateString()}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    {v.linked_speaking_session_id && (
+                      <Link
+                        href={`/speaking/sessions/${v.linked_speaking_session_id}`}
+                        className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium"
+                      >
+                        Last feedback
+                      </Link>
+                    )}
                     <Link
-                      href={`/speaking/sessions/${v.linked_speaking_session_id}`}
-                      className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium"
+                      href={`/youtube/call/${v.id}`}
+                      className="rounded-lg bg-accent px-2.5 py-1.5 text-xs font-semibold text-accent-foreground"
                     >
-                      Last feedback
+                      Discuss
                     </Link>
-                  )}
-                  <Link
-                    href={`/youtube/call/${v.id}`}
-                    className="rounded-lg bg-accent px-2.5 py-1.5 text-xs font-semibold text-accent-foreground"
-                  >
-                    Discuss
-                  </Link>
+                  </div>
                 </div>
+                <button onClick={() => handleDelete(v.id, v.title)} className="mt-2 text-xs text-muted underline">
+                  Delete
+                </button>
               </li>
             ))}
           </ul>

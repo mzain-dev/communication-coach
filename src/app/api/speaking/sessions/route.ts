@@ -15,9 +15,10 @@ export async function GET() {
   const sessions = await query<
     { id: number; scenario_name: string; duration_seconds: number; model_used: string | null; date: string; score: number | null }[]
   >(
-    `SELECT ss.id, sc.name as scenario_name, ss.duration_seconds, ss.model_used, ss.date, sm.score
+    `SELECT ss.id, COALESCE(yt.title, sc.name) as scenario_name, ss.duration_seconds, ss.model_used, ss.date, sm.score
      FROM speaking_sessions ss
      JOIN scenarios sc ON sc.id = ss.scenario_id
+     LEFT JOIN youtube_sessions yt ON yt.linked_speaking_session_id = ss.id
      LEFT JOIN summaries sm ON sm.session_id = ss.id AND sm.session_type = 'speaking'
      WHERE ss.user_id = ?
      ORDER BY ss.date DESC

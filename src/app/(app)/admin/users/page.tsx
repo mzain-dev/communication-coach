@@ -10,8 +10,17 @@ type UserRow = {
   role: "admin" | "user";
   is_active: number;
   created_at: string;
+  last_login_at: string | null;
   has_api_key: number;
 };
+
+function formatLastActive(lastLoginAt: string | null): string {
+  if (!lastLoginAt) return "Never logged in";
+  const days = Math.floor((Date.now() - new Date(lastLoginAt).getTime()) / 86_400_000);
+  if (days <= 0) return "Active today";
+  if (days === 1) return "Active yesterday";
+  return `Last active ${days} days ago`;
+}
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -22,6 +31,7 @@ export default function AdminUsersPage() {
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [resetInfo, setResetInfo] = useState<{ userId: number; temporaryPassword: string } | null>(null);
 
   async function loadUsers() {
     setLoading(true);
@@ -70,6 +80,17 @@ export default function AdminUsersPage() {
       body: JSON.stringify({ isActive: !user.is_active }),
     });
     loadUsers();
+  }
+
+  async function resetPassword(user: UserRow) {
+    setResetInfo(null);
+    const res = await fetch(`/api/admin/users/${user.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resetPassword: true }),
+    });
+    const data = await res.json();
+    if (res.ok) setResetInfo({ userId: user.id, temporaryPassword: data.temporaryPassword });
   }
 
   return (
@@ -139,7 +160,8 @@ export default function AdminUsersPage() {
                 <Link href={`/admin/users/${u.id}`} className="min-w-0">
                   <p className="truncate text-sm font-medium">{u.name}</p>
                   <p className="truncate text-xs text-muted">{u.email}</p>
-                  <div className="mt-1 flex gap-1.5">
+                  <p className="text-xs text-muted">{formatLastActive(u.last_login_at)}</p>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
                     <Badge>{u.role}</Badge>
                     <Badge tone={u.has_api_key ? "accent" : "muted"}>
                       {u.has_api_key ? "API key set" : "No API key"}
@@ -147,15 +169,30 @@ export default function AdminUsersPage() {
                     {!u.is_active && <Badge tone="danger">Deactivated</Badge>}
                   </div>
                 </Link>
-                {u.role !== "admin" && (
+                <div className="flex shrink-0 flex-col gap-1.5">
+                  {u.role !== "admin" && (
+                    <button
+                      onClick={() => toggleActive(u)}
+                      className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium active:bg-border"
+                    >
+                      {u.is_active ? "Deactivate" : "Reactivate"}
+                    </button>
+                  )}
                   <button
-                    onClick={() => toggleActive(u)}
-                    className="shrink-0 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium active:bg-border"
+                    onClick={() => resetPassword(u)}
+                    className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium active:bg-border"
                   >
-                    {u.is_active ? "Deactivate" : "Reactivate"}
+                    Reset password
                   </button>
-                )}
+                </div>
               </div>
+              {resetInfo?.userId === u.id && (
+                <div className="mt-2 rounded-lg bg-accent/10 p-2 text-xs">
+                  New temporary password: <span className="font-mono font-semibold">{resetInfo.temporaryPassword}</span>
+                  <br />
+                  Share this with {u.name} — it won&apos;t be shown again.
+                </div>
+              )}
             </li>
           ))}
         </ul>

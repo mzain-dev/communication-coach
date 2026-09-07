@@ -21,6 +21,12 @@ export function GrammarTracker({ hasApiKey }: { hasApiKey: boolean }) {
       .finally(() => setLoading(false));
   }, []);
 
+  async function clearPattern(errorType: string) {
+    if (!confirm(`Clear all logged "${errorType}" mistakes? This can't be undone.`)) return;
+    setPatterns((prev) => prev.filter((p) => p.error_type !== errorType));
+    await fetch(`/api/grammar?type=${encodeURIComponent(errorType)}`, { method: "DELETE" });
+  }
+
   async function getMicroLesson(errorType: string) {
     setLessonError(null);
     if (lessons[errorType]) {
@@ -78,19 +84,24 @@ export function GrammarTracker({ hasApiKey }: { hasApiKey: boolean }) {
               </div>
               <p className="mt-1 text-sm text-muted">{p.latest_example}</p>
 
-              {hasApiKey && (
-                <button
-                  onClick={() => getMicroLesson(p.error_type)}
-                  disabled={lessonLoading === p.error_type}
-                  className="mt-2 text-sm font-medium text-accent disabled:opacity-60"
-                >
-                  {lessonLoading === p.error_type
-                    ? "Generating…"
-                    : openLesson === p.error_type
-                      ? "Hide micro-lesson"
-                      : "Get a micro-lesson"}
+              <div className="mt-2 flex items-center gap-3">
+                {hasApiKey && (
+                  <button
+                    onClick={() => getMicroLesson(p.error_type)}
+                    disabled={lessonLoading === p.error_type}
+                    className="text-sm font-medium text-accent disabled:opacity-60"
+                  >
+                    {lessonLoading === p.error_type
+                      ? "Generating…"
+                      : openLesson === p.error_type
+                        ? "Hide micro-lesson"
+                        : "Get a micro-lesson"}
+                  </button>
+                )}
+                <button onClick={() => clearPattern(p.error_type)} className="text-sm text-muted underline">
+                  Clear
                 </button>
-              )}
+              </div>
 
               {openLesson === p.error_type && lessons[p.error_type] && (
                 <div className="mt-3 rounded-lg bg-background p-3">

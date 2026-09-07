@@ -31,6 +31,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "This account has been deactivated." }, { status: 403 });
   }
 
+  await query("UPDATE users SET last_login_at = NOW() WHERE id = ?", [user.id]);
+
   const token = await createSessionToken({
     sub: String(user.id),
     name: user.name,

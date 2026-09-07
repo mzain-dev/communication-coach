@@ -8,8 +8,11 @@ Track, a reliability/QA pass across all of it, and YouTube Context Learning.
 
 ## What's built
 
-- **Auth & Admin** — login, JWT session cookie, admin/user roles, User Management (create/deactivate),
-  read-only admin profile views.
+- **Auth & Admin** — login (tracks `last_login_at`, shown in User Management as "Active today" /
+  "Last active N days ago" / "Never logged in"), JWT session cookie, admin/user roles, User Management
+  (create/deactivate/reset password), read-only admin profile views. Self-service password change is
+  in Settings; admin can also force-reset any user's password to a one-time temporary one (shown once,
+  not emailed — there's no email integration).
 - **Settings** — per-user Gemini API key, AES-256-GCM encrypted at rest, decrypted only in-memory on
   the server at the moment of a Gemini call. Preferred Live model selection.
 - **Speaking Practice** — 8 scenarios (casual, 4 client-call variants, difficult conversation,
@@ -87,8 +90,7 @@ The first admin login is printed by `db:init` — by default:
 - Email: `admin@local.test`
 - Password: `ChangeMe123!`
 
-Change that password by creating a new admin manually in MySQL, or by extending the admin UI later —
-there's no self-service password change yet.
+Change that password from **Settings → Change password** once you've logged in.
 
 ## Using it
 
@@ -98,11 +100,12 @@ there's no self-service password change yet.
    This is what unlocks every AI-powered module.
 4. **Speaking Practice** → pick a scenario → **Start Call**. Allow microphone access when the browser
    prompts. Speak naturally; the AI partner responds with voice. **End Call** saves the transcript and
-   generates feedback.
-5. **Writing Practice** → pick a category (or free-write) → write → **Submit** for feedback.
+   generates feedback. Tap **History** to see or delete past sessions.
+5. **Writing Practice** → pick a category (or free-write) → write → **Submit** for feedback. **History**
+   lists and lets you delete past entries.
 6. **Listening Practice** → type a topic → **Generate** → **Play** to hear it (browser TTS) → answer the
    comprehension questions → **Submit** for a score and review. Shadowing mode needs Chrome or Edge
-   (uses `SpeechRecognition`, which Firefox/Safari don't support).
+   (uses `SpeechRecognition`, which Firefox/Safari don't support). **History** works the same way.
 7. **Vocabulary Bank** → words show up automatically as you use the other modules; **Start review** when
    words are due, or add your own anytime.
 8. **Grammar Tracker** → recurring mistakes appear automatically; tap **Get a micro-lesson** on any
@@ -208,6 +211,61 @@ to `yt-dlp`, adding Python as a hard runtime dependency of uncertain Hostinger c
 have the user paste the transcript themselves. Went with (b), per direction — zero new dependencies,
 deploys anywhere, and the module still does everything else the plan describes once it has the text.
 The video title is still fetched automatically via YouTube's official, documented oEmbed endpoint.
+
+## Post-Phase-9 review: gaps found and fixed
+
+With every module built, went back through the plan module-by-module against what was actually
+implemented, plus checked engineering fundamentals (bundle size, dark mode). Fixed the two with real
+day-to-day impact:
+
+- **Self-service password change** (Settings) and **admin-initiated reset** (User Management —
+  generates a one-time temporary password like `ember-orbit-3193`, shown once, not emailed since
+  there's no email integration). Previously the *only* way to change any password, including the
+  seeded admin's, was a direct MySQL update. Verified live: wrong current password is rejected, correct
+  change works, old password stops working, admin reset password logs the user in successfully.
+- **Last-active tracking** — `users.last_login_at` is now set on every successful login and shown in
+  User Management ("Active today" / "Last active N days ago" / "Never logged in"), closing a gap
+  against the plan's explicit "has API key set? last active?" requirement for that screen.
+
+Found but **not yet fixed** — flagged, not silently skipped:
+
+- Speaking's `difficulty` field is decorative — the AI partner doesn't actually speak simpler/slower
+  for beginners or faster/more complex for advanced, despite the plan calling this out explicitly.
+- Writing/Listening difficulty is manual every time, not adjusted automatically from the user's tracked
+  proficiency level (Phase 6 already computes that level — it just isn't fed back in).
+- Vocabulary Bank entries store one definition + one example; the plan also wants "original context"
+  and a distinct "professional-usage example" per word.
+- Vocabulary review is tap-to-reveal + buttons, not literal swipe gestures.
+- No automated test suite — everything's been verified by live-hitting real endpoints this session.
+- `@google/genai` ships as a ~350KB client bundle on the call pages, loaded upfront rather than only
+  when a call starts.
+- `middleware.ts` triggers a deprecation warning every dev server start (Next 16 wants `proxy.ts`).
+
+## Data management: view + delete everywhere
+
+The user asked directly whether every module's stored data (Speaking, Writing, Listening, grammar,
+vocabulary) was viewable and deletable in an organized way. Audited it and the honest answer was no —
+**Vocabulary Bank was the only one with both.** Grammar Tracker had an aggregated view but no delete;
+Speaking/Writing/Listening had per-item detail pages but no "all my history" list and no delete at all;
+YouTube had a list but no delete. Closed all of it:
+
+- **History list pages** — `/speaking/history`, `/writing/history`, `/listening/history`, each linked
+  from that module's main page, listing every past session/entry/exercise with its score and a link to
+  the existing detail page.
+- **Delete everywhere** — every history row, the YouTube videos list, and each Grammar Tracker pattern
+  ("Clear" — deletes every logged instance of that mistake type, since the tracker only shows
+  aggregates, not individual instances) now has a delete action, confirmed before it fires.
+- **Delete actually deletes, not just hides** — a shared `deleteSessionRelatedData()` helper removes
+  the session's feedback (`summaries`), grammar log entries, and level-history estimate together with
+  the session itself, so deleted content stops being counted in Grammar Tracker/Progress instead of
+  leaving orphaned rows behind. Deleting a YouTube video also deletes its linked discussion session
+  (feedback and all) rather than leaving a dangling reference. Verified all of this directly in MySQL,
+  not just via the UI: deleted a speaking session and confirmed its summary/grammar/level rows vanished
+  while a different session's rows were untouched; deleted a YouTube video and confirmed both it and its
+  linked speaking session (and that session's summary) were gone together.
+- **Bug fix found along the way**: the internal "YouTube Video Discussion" placeholder scenario (added
+  in Phase 9 purely as a foreign-key target) was incorrectly showing up as a selectable option on the
+  Speaking picker. Now filtered out.
 
 ## Next steps (per the plan's execution order)
 
