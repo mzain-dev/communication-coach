@@ -6,6 +6,10 @@ full DB schema, Auth/Admin foundation, mobile nav shell, the Speaking, Writing, 
 Bank, and Grammar Tracker modules, the Level Estimator + Progress Dashboard, the Client Communication
 Track, a reliability/QA pass across all of it, and YouTube Context Learning.
 
+This file is technical: setup, architecture, what's built, what's not, and what was found during
+review. For what the product actually is, how it works, and why it's useful — no code — see
+[ABOUT.md](ABOUT.md).
+
 ## What's built
 
 - **Auth & Admin** — login (tracks `last_login_at`, shown in User Management as "Active today" /
