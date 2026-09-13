@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { MicroLesson } from "@/lib/grammar";
+import { useNotifications } from "@/components/Notifications";
 
 type Pattern = { error_type: string; frequency: number; latest_example: string; latest_date: string };
 
 export function GrammarTracker({ hasApiKey }: { hasApiKey: boolean }) {
+  const { confirm, toast } = useNotifications();
   const [patterns, setPatterns] = useState<Pattern[]>([]);
   const [loading, setLoading] = useState(true);
   const [openLesson, setOpenLesson] = useState<string | null>(null);
@@ -22,9 +24,17 @@ export function GrammarTracker({ hasApiKey }: { hasApiKey: boolean }) {
   }, []);
 
   async function clearPattern(errorType: string) {
-    if (!confirm(`Clear all logged "${errorType}" mistakes? This can't be undone.`)) return;
-    setPatterns((prev) => prev.filter((p) => p.error_type !== errorType));
-    await fetch(`/api/grammar?type=${encodeURIComponent(errorType)}`, { method: "DELETE" });
+    const ok = await confirm(`Clear all logged "${errorType}" mistakes? This can't be undone.`, "Clear");
+    if (!ok) return;
+    const prev = patterns;
+    setPatterns((p) => p.filter((item) => item.error_type !== errorType));
+    try {
+      const res = await fetch(`/api/grammar?type=${encodeURIComponent(errorType)}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+    } catch {
+      setPatterns(prev);
+      toast("Couldn't clear this pattern — please try again.");
+    }
   }
 
   async function getMicroLesson(errorType: string) {

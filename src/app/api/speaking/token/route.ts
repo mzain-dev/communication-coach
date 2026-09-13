@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { getDecryptedApiKeyForUser, createEphemeralLiveToken, MissingApiKeyError } from "@/lib/gemini";
 import { LIVE_MODEL_FALLBACK_CHAIN, DEFAULT_LIVE_MODEL_ID } from "@/lib/models";
+import { CALL_GLOBAL_INSTRUCTIONS } from "@/lib/constants";
 
 export async function POST(request: Request) {
   let session;
@@ -43,6 +44,8 @@ export async function POST(request: Request) {
     if (!scenario) return NextResponse.json({ error: "Scenario not found." }, { status: 404 });
     systemPrompt = scenario.system_prompt;
   }
+
+  systemPrompt = `${systemPrompt}\n\n${CALL_GLOBAL_INSTRUCTIONS}`;
 
   try {
     const apiKey = await getDecryptedApiKeyForUser(session.sub);

@@ -7,7 +7,11 @@ import mysql from "mysql2/promise";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 
-dotenv.config({ path: ".env.local" });
+// Defaults to local dev config; pass a different file to target another environment, e.g.
+// `node scripts/init-db.mjs .env.production` (see the `db:init:prod` npm script).
+const envFile = process.argv[2] || ".env.local";
+dotenv.config({ path: envFile });
+console.log(`Using config from ${envFile}`);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -99,18 +103,24 @@ const DEFAULT_SCENARIOS = [
 ];
 
 async function main() {
-  const admin = await mysql.createConnection({
-    host: DB_HOST,
-    port: Number(DB_PORT),
-    user: DB_USER,
-    password: DB_PASSWORD,
-    multipleStatements: true,
-  });
-
-  await admin.query(
-    `CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
-  );
-  await admin.end();
+  // Local dev (root) can create the database itself. Managed hosts like Hostinger scope the
+  // MySQL user to one already-created database with no CREATE DATABASE privilege — in that case
+  // this fails and we just proceed assuming the database (created via hPanel) already exists.
+  try {
+    const admin = await mysql.createConnection({
+      host: DB_HOST,
+      port: Number(DB_PORT),
+      user: DB_USER,
+      password: DB_PASSWORD,
+      multipleStatements: true,
+    });
+    await admin.query(
+      `CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+    );
+    await admin.end();
+  } catch (err) {
+    console.log(`Skipping CREATE DATABASE (${err.code ?? err.message}) — assuming "${DB_NAME}" already exists.`);
+  }
 
   const db = await mysql.createConnection({
     host: DB_HOST,
@@ -124,6 +134,21 @@ async function main() {
   const schema = readFileSync(path.join(__dirname, "..", "db", "schema.sql"), "utf8");
   await db.query(schema);
   console.log(`Schema applied to database "${DB_NAME}".`);
+
+  // CREATE TABLE IF NOT EXISTS above doesn't add new columns to a table that already exists
+  // from a previous deploy — this brings an existing `summaries` table (local or production) up
+  // to date without a full migration tool. Safe to re-run: a duplicate-column error (1060) means
+  // it's already applied.
+  try {
+    await db.query("ALTER TABLE summaries ADD COLUMN details JSON NULL");
+    console.log('Added "details" column to summaries.');
+  } catch (err) {
+    if (err.errno === 1060) {
+      console.log('"details" column already present on summaries, skipping.');
+    } else {
+      throw err;
+    }
+  }
 
   const [existingScenarios] = await db.query("SELECT COUNT(*) as count FROM scenarios");
   if (existingScenarios[0].count === 0) {

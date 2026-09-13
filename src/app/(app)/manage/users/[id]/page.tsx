@@ -8,7 +8,7 @@ import type { Skill } from "@/lib/tracking";
 
 const SKILL_LABELS: Record<Skill, string> = { speaking: "Speaking", writing: "Writing", listening: "Listening" };
 
-export default async function AdminUserProfilePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ManageUserProfilePage({ params }: { params: Promise<{ id: string }> }) {
   try {
     await requireAdmin();
   } catch {
@@ -42,7 +42,7 @@ export default async function AdminUserProfilePage({ params }: { params: Promise
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4 p-4 pb-24">
-      <Link href="/admin/users" className="text-sm text-muted">
+      <Link href="/manage/users" className="text-sm text-muted">
         ← User Management
       </Link>
       <div>

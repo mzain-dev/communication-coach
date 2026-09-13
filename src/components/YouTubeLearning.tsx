@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useNotifications } from "@/components/Notifications";
 
 type VideoHistoryItem = {
   id: number;
@@ -14,6 +15,7 @@ type VideoHistoryItem = {
 
 export function YouTubeLearning({ hasApiKey }: { hasApiKey: boolean }) {
   const router = useRouter();
+  const { confirm, toast } = useNotifications();
   const [url, setUrl] = useState("");
   const [transcript, setTranscript] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -63,9 +65,17 @@ export function YouTubeLearning({ hasApiKey }: { hasApiKey: boolean }) {
   }
 
   async function handleDelete(id: number, title: string) {
-    if (!confirm(`Delete "${title}" and its discussion? This can't be undone.`)) return;
-    setHistory((prev) => prev.filter((v) => v.id !== id));
-    await fetch(`/api/youtube/videos/${id}`, { method: "DELETE" });
+    const ok = await confirm(`Delete "${title}" and its discussion? This can't be undone.`);
+    if (!ok) return;
+    const prev = history;
+    setHistory((h) => h.filter((v) => v.id !== id));
+    try {
+      const res = await fetch(`/api/youtube/videos/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+    } catch {
+      setHistory(prev);
+      toast("Couldn't delete this video — please try again.");
+    }
   }
 
   return (

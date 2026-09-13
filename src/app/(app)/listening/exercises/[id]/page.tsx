@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
 
 type StoredQuestion = { question: string; choices: string[]; correctIndex: number };
+type StoredListeningDetails = { vocabulary: { word: string; definition: string; example: string }[] };
 
 export default async function ListeningExercisePage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -24,11 +25,19 @@ export default async function ListeningExercisePage({ params }: { params: Promis
   const questions = exercise.questions;
   const userAnswers = exercise.answers;
 
-  const summaries = await query<{ strengths: string | null; weaknesses: string | null; action_item: string | null }[]>(
-    "SELECT strengths, weaknesses, action_item FROM summaries WHERE session_id = ? AND session_type = 'listening'",
+  const summaries = await query<
+    {
+      strengths: string | null;
+      weaknesses: string | null;
+      action_item: string | null;
+      details: StoredListeningDetails | null;
+    }[]
+  >(
+    "SELECT strengths, weaknesses, action_item, details FROM summaries WHERE session_id = ? AND session_type = 'listening'",
     [id]
   );
   const summary = summaries[0] ?? null;
+  const vocabulary = summary?.details?.vocabulary ?? [];
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4 p-4 pb-24">
@@ -62,6 +71,19 @@ export default async function ListeningExercisePage({ params }: { params: Promis
               <p className="text-sm">{summary.action_item}</p>
             </div>
           )}
+        </div>
+      )}
+
+      {vocabulary.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs font-semibold text-muted">Vocabulary from this exercise</p>
+          <ul className="mt-2 flex flex-col gap-2 text-sm">
+            {vocabulary.map((v, i) => (
+              <li key={i}>
+                <span className="font-medium">{v.word}</span> — {v.definition}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

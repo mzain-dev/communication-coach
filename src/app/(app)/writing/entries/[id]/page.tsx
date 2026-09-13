@@ -3,6 +3,16 @@ import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { WRITING_CATEGORIES } from "@/lib/constants";
+import { WritingFeedbackCard, type WritingFeedbackCardData } from "@/components/WritingFeedbackCard";
+
+type StoredWritingDetails = {
+  tone: string;
+  grammarCorrections: { original: string; corrected: string; explanation: string; errorType: string }[];
+  sentenceSuggestions: string;
+  vocabularySuggestions: string;
+  newVocabulary: { word: string; definition: string; example: string }[];
+  professionalVersion: string;
+};
 
 export default async function WritingEntryPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -19,11 +29,33 @@ export default async function WritingEntryPage({ params }: { params: Promise<{ i
   if (!entry) notFound();
 
   const summaries = await query<
-    { strengths: string | null; weaknesses: string | null; score: number | null; action_item: string | null }[]
-  >("SELECT strengths, weaknesses, score, action_item FROM summaries WHERE session_id = ? AND session_type = 'writing'", [
-    id,
-  ]);
+    {
+      strengths: string | null;
+      weaknesses: string | null;
+      score: number | null;
+      action_item: string | null;
+      details: StoredWritingDetails | null;
+    }[]
+  >(
+    "SELECT strengths, weaknesses, score, action_item, details FROM summaries WHERE session_id = ? AND session_type = 'writing'",
+    [id]
+  );
   const summary = summaries[0] ?? null;
+  const details = summary?.details ?? null;
+  const feedback: WritingFeedbackCardData | null = summary
+    ? {
+        clarityScore: summary.score ?? 0,
+        strengths: summary.strengths ?? "",
+        weaknesses: summary.weaknesses ?? "",
+        actionItem: summary.action_item ?? "",
+        tone: details?.tone ?? "",
+        grammarCorrections: details?.grammarCorrections ?? [],
+        sentenceSuggestions: details?.sentenceSuggestions ?? "",
+        vocabularySuggestions: details?.vocabularySuggestions ?? "",
+        newVocabulary: details?.newVocabulary ?? [],
+        professionalVersion: details?.professionalVersion ?? "",
+      }
+    : null;
   const categoryLabel = WRITING_CATEGORIES.find((c) => c.id === entry.category)?.label ?? entry.category;
 
   return (
@@ -36,23 +68,7 @@ export default async function WritingEntryPage({ params }: { params: Promise<{ i
         <p className="text-sm text-muted">{new Date(entry.date).toLocaleString()}</p>
       </div>
 
-      {summary && (
-        <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-sm font-semibold">Clarity score: {summary.score ?? "—"}/100</p>
-          {summary.strengths && (
-            <div className="mt-2">
-              <p className="text-xs font-semibold text-muted">Strengths</p>
-              <p className="text-sm">{summary.strengths}</p>
-            </div>
-          )}
-          {summary.action_item && (
-            <div className="mt-2">
-              <p className="text-xs font-semibold text-muted">Focus for next time</p>
-              <p className="text-sm">{summary.action_item}</p>
-            </div>
-          )}
-        </div>
-      )}
+      {feedback && <WritingFeedbackCard feedback={feedback} />}
 
       <details className="rounded-xl border border-border bg-card p-4" open>
         <summary className="cursor-pointer text-sm font-semibold">Original</summary>

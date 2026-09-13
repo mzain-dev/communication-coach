@@ -62,10 +62,26 @@ export async function POST(request: Request) {
     );
     const entryId = insertResult.insertId;
 
+    const details = {
+      tone: feedback.tone,
+      grammarCorrections: feedback.grammarCorrections,
+      sentenceSuggestions: feedback.sentenceSuggestions,
+      vocabularySuggestions: feedback.vocabularySuggestions,
+      newVocabulary: feedback.newVocabulary,
+      professionalVersion: feedback.professionalVersion,
+    };
     await query(
-      `INSERT INTO summaries (user_id, session_id, session_type, strengths, weaknesses, score, action_item)
-       VALUES (?, ?, 'writing', ?, ?, ?, ?)`,
-      [session.sub, entryId, feedback.strengths, feedback.weaknesses, feedback.clarityScore, feedback.actionItem]
+      `INSERT INTO summaries (user_id, session_id, session_type, strengths, weaknesses, score, action_item, details)
+       VALUES (?, ?, 'writing', ?, ?, ?, ?, ?)`,
+      [
+        session.sub,
+        entryId,
+        feedback.strengths,
+        feedback.weaknesses,
+        feedback.clarityScore,
+        feedback.actionItem,
+        JSON.stringify(details),
+      ]
     );
     await recordGrammarErrors(
       session.sub,

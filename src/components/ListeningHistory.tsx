@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useNotifications } from "@/components/Notifications";
 
 type ExerciseRow = { id: number; topic: string; difficulty: string; date: string; score: number | null };
 
 export function ListeningHistory() {
+  const { confirm, toast } = useNotifications();
   const [exercises, setExercises] = useState<ExerciseRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -17,9 +19,17 @@ export function ListeningHistory() {
   }, []);
 
   async function handleDelete(id: number, topic: string) {
-    if (!confirm(`Delete this exercise ("${topic}")? This can't be undone.`)) return;
-    setExercises((prev) => prev.filter((e) => e.id !== id));
-    await fetch(`/api/listening/exercises/${id}`, { method: "DELETE" });
+    const ok = await confirm(`Delete this exercise ("${topic}")? This can't be undone.`);
+    if (!ok) return;
+    const prev = exercises;
+    setExercises((e) => e.filter((exercise) => exercise.id !== id));
+    try {
+      const res = await fetch(`/api/listening/exercises/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+    } catch {
+      setExercises(prev);
+      toast("Couldn't delete this exercise — please try again.");
+    }
   }
 
   return (

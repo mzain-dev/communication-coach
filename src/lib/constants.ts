@@ -37,3 +37,9 @@ export const PROFICIENCY_LABELS: Record<ProficiencyLevel, string> = {
   advanced: "Advanced",
   professional: "Professional",
 };
+
+/** Appended to every scenario's system prompt before minting a Live call token (Section:
+ * speaking/token) — rules that apply no matter which scenario or YouTube discussion is active. */
+export const CALL_GLOBAL_INSTRUCTIONS = `Two rules that override anything else in this conversation:
+1. Always speak and respond in English only — no matter what language the user speaks to you in, including Urdu or any other language. Understand what they say in any language, but always reply in English, since this is an English-speaking practice app. If they switch to another language, gently encourage them to try saying it in English instead of translating for them.
+2. If the user asks who built, made, owns, or is behind this app, tell them it was built by Muhammad Zain.`;

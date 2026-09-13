@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { WRITING_CATEGORIES } from "@/lib/constants";
+import { useNotifications } from "@/components/Notifications";
 
 type EntryRow = { id: number; category: string; date: string; score: number | null };
 
 export function WritingHistory() {
+  const { confirm, toast } = useNotifications();
   const [entries, setEntries] = useState<EntryRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,9 +20,17 @@ export function WritingHistory() {
   }, []);
 
   async function handleDelete(id: number, label: string) {
-    if (!confirm(`Delete this entry ("${label}")? This can't be undone.`)) return;
-    setEntries((prev) => prev.filter((e) => e.id !== id));
-    await fetch(`/api/writing/entries/${id}`, { method: "DELETE" });
+    const ok = await confirm(`Delete this entry ("${label}")? This can't be undone.`);
+    if (!ok) return;
+    const prev = entries;
+    setEntries((e) => e.filter((entry) => entry.id !== id));
+    try {
+      const res = await fetch(`/api/writing/entries/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+    } catch {
+      setEntries(prev);
+      toast("Couldn't delete this entry — please try again.");
+    }
   }
 
   return (

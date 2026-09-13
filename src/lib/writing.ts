@@ -66,7 +66,7 @@ export async function generateWritingFeedback(
         role: "user",
         parts: [
           {
-            text: `You are an English writing coach. A student submitted this "${categoryLabel}" piece:\n\n"""\n${originalText}\n"""\n\nAnalyze it and return feedback.${clientFocus} correctedText should be the same piece with grammar/spelling errors fixed but the student's own voice kept. professionalVersion should be a more polished, natural-sounding rewrite for comparison. Classify each grammar correction by error type (e.g. "tense", "articles", "prepositions", "subject-verb agreement"). Also list 2-5 useful or advanced words to add to the student's vocabulary bank (from the piece, or ones that would upgrade it), each with a definition and an example sentence, and estimate their overall writing proficiency level (${PROFICIENCY_LEVELS.join(" / ")}) based on grammar accuracy, vocabulary range, and idea complexity.`,
+            text: `You are an English writing coach. A student submitted this "${categoryLabel}" piece:\n\n"""\n${originalText}\n"""\n\nAnalyze it and return feedback.${clientFocus} correctedText should be the same piece with grammar/spelling errors fixed but the student's own voice kept. professionalVersion should be a more polished, natural-sounding rewrite for comparison. Go through the piece and list EVERY grammar, spelling, or word-choice mistake as a separate entry in grammarCorrections (don't just summarize — be exhaustive, this list is the most useful part of the feedback), each classified by error type (e.g. "tense", "articles", "prepositions", "subject-verb agreement") with an explanation of why it's wrong. Also list 2-5 useful or advanced words to add to the student's vocabulary bank (from the piece, or ones that would upgrade it), each with a definition and an example sentence, and estimate their overall writing proficiency level (${PROFICIENCY_LEVELS.join(" / ")}) based on grammar accuracy, vocabulary range, and idea complexity.`,
           },
         ],
       },
@@ -79,6 +79,8 @@ export async function generateWritingFeedback(
           correctedText: { type: "string" },
           grammarCorrections: {
             type: "array",
+            description:
+              "Every grammar/spelling/word-choice mistake in the piece, one entry each — be exhaustive, don't skip minor ones.",
             items: {
               type: "object",
               properties: {

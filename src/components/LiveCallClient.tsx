@@ -8,6 +8,7 @@ import { LIVE_MODEL_FALLBACK_CHAIN } from "@/lib/models";
 import { MicStreamer } from "@/lib/audio/MicStreamer";
 import { AudioPlayer } from "@/lib/audio/AudioPlayer";
 import type { FeedbackResult } from "@/lib/gemini";
+import { FeedbackCard } from "@/components/FeedbackCard";
 
 type Scenario = { id: number; name: string; difficulty: string };
 type TranscriptLine = { speaker: "user" | "ai"; text: string };
@@ -38,6 +39,10 @@ export function LiveCallClient({
   const [feedback, setFeedback] = useState<FeedbackResult | null>(null);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [muted, setMuted] = useState(false);
+  // Whether the model is currently streaming audio back — the signal that lets the call screen
+  // show "AI is speaking" instead of a static "Live" the whole time (Section: perceived latency).
+  const [aiSpeaking, setAiSpeaking] = useState(false);
 
   const sessionRef = useRef<Session | null>(null);
   const micRef = useRef<MicStreamer | null>(null);
@@ -47,6 +52,10 @@ export function LiveCallClient({
   const modelUsedRef = useRef<string | null>(null);
   const endedByUserRef = useRef(false);
   const bufferRef = useRef<{ speaker: "user" | "ai" | null; text: string }>({ speaker: null, text: "" });
+  // Mic level is written directly to the DOM (not via setState) — it fires ~20x/sec and this is
+  // a purely cosmetic ring, so avoid adding that many React re-renders to the same main thread
+  // that's already resampling/encoding/sending every audio chunk.
+  const levelRingRef = useRef<HTMLDivElement | null>(null);
 
   const flushBuffer = useCallback(() => {
     const { speaker, text } = bufferRef.current;
@@ -82,6 +91,8 @@ export function LiveCallClient({
       // ignore
     }
     sessionRef.current = null;
+    setAiSpeaking(false);
+    setMuted(false);
   }, []);
 
   // Held in a ref (rather than referencing `connectWithModel` by name) so the fallback chain
@@ -121,7 +132,10 @@ export function LiveCallClient({
       try {
         const session = await client.live.connect({
           model: model.id,
-          config: { responseModalities: [Modality.AUDIO] },
+          config: {
+            responseModalities: [Modality.AUDIO],
+            realtimeInputConfig: { automaticActivityDetection: { silenceDurationMs: 500 } },
+          },
           callbacks: {
             onopen: () => {
               modelUsedRef.current = model.id;
@@ -129,18 +143,27 @@ export function LiveCallClient({
               setStatus("live");
               if (!startTimeRef.current) startTimeRef.current = Date.now();
 
-              const player = new AudioPlayer();
+              const player = new AudioPlayer((playing) => setAiSpeaking(playing));
               playerRef.current = player;
 
               const mic = new MicStreamer();
               micRef.current = mic;
-              mic.start((base64Pcm) => {
-                try {
-                  session.sendRealtimeInput({ audio: { data: base64Pcm, mimeType: "audio/pcm;rate=16000" } });
-                } catch {
-                  // session may already be closing
+              mic.start(
+                (base64Pcm) => {
+                  try {
+                    session.sendRealtimeInput({ audio: { data: base64Pcm, mimeType: "audio/pcm;rate=16000" } });
+                  } catch {
+                    // session may already be closing
+                  }
+                },
+                (level) => {
+                  const ring = levelRingRef.current;
+                  if (!ring) return;
+                  const clamped = Math.min(1, level * 4);
+                  ring.style.transform = `scale(${1 + clamped * 0.6})`;
+                  ring.style.opacity = `${0.25 + clamped * 0.5}`;
                 }
-              });
+              );
             },
             onmessage: (message: LiveServerMessage) => {
               const content = message.serverContent;
@@ -206,6 +229,14 @@ export function LiveCallClient({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function toggleMute() {
+    setMuted((prev) => {
+      const next = !prev;
+      micRef.current?.setMuted(next);
+      return next;
+    });
+  }
 
   async function endCall() {
     endedByUserRef.current = true;
@@ -314,9 +345,17 @@ export function LiveCallClient({
         <span className="text-xs uppercase tracking-wide text-white/40">{scenario.difficulty}</span>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
         <h1 className="text-2xl font-semibold">{scenario.name}</h1>
-        <StatusBadge status={status} modelLabel={modelLabel} />
+        {status !== "idle" && (
+          <CallOrb
+            aiSpeaking={aiSpeaking}
+            muted={muted}
+            connecting={status === "connecting" || status === "reconnecting"}
+            levelRingRef={levelRingRef}
+          />
+        )}
+        <StatusBadge status={status} modelLabel={modelLabel} aiSpeaking={aiSpeaking} muted={muted} />
         {status === "live" && <p className="font-mono text-3xl tabular-nums">{formatTime(elapsed)}</p>}
       </div>
 
@@ -335,7 +374,7 @@ export function LiveCallClient({
         )}
       </div>
 
-      <div className="px-6 pb-10">
+      <div className="flex items-center gap-3 px-6 pb-10">
         {status === "idle" ? (
           <button
             onClick={startCall}
@@ -344,75 +383,129 @@ export function LiveCallClient({
             Start Call
           </button>
         ) : (
-          <button
-            onClick={endCall}
-            disabled={status === "connecting" || status === "reconnecting"}
-            className="w-full rounded-2xl bg-danger py-4 text-base font-semibold text-white disabled:opacity-50"
-          >
-            End Call
-          </button>
+          <>
+            {status === "live" && (
+              <button
+                type="button"
+                onClick={toggleMute}
+                aria-label={muted ? "Unmute microphone" : "Mute microphone"}
+                aria-pressed={muted}
+                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border ${
+                  muted ? "border-white/40 bg-white/15" : "border-white/20"
+                }`}
+              >
+                {muted ? <MicOffIcon /> : <MicIcon />}
+              </button>
+            )}
+            <button
+              onClick={endCall}
+              disabled={status === "connecting" || status === "reconnecting"}
+              className="flex-1 rounded-2xl bg-danger py-4 text-base font-semibold text-white disabled:opacity-50"
+            >
+              End Call
+            </button>
+          </>
         )}
       </div>
     </div>
   );
 }
 
-function StatusBadge({ status, modelLabel }: { status: Status; modelLabel: string | null }) {
-  const text =
-    status === "connecting"
-      ? "Connecting…"
-      : status === "reconnecting"
-        ? "Reconnecting…"
-        : status === "live"
-          ? `Live${modelLabel ? ` · ${modelLabel}` : ""}`
-          : "Ready";
-  return <p className="text-sm text-white/60">{text}</p>;
-}
+function StatusBadge({
+  status,
+  modelLabel,
+  aiSpeaking,
+  muted,
+}: {
+  status: Status;
+  modelLabel: string | null;
+  aiSpeaking: boolean;
+  muted: boolean;
+}) {
+  if (status === "connecting") return <p className="text-sm text-white/60">Connecting…</p>;
+  if (status === "reconnecting") return <p className="text-sm text-white/60">Reconnecting…</p>;
+  if (status !== "live") return <p className="text-sm text-white/60">Ready</p>;
 
-function FeedbackCard({ feedback }: { feedback: FeedbackResult }) {
+  const text = muted ? "Muted" : aiSpeaking ? "AI is speaking" : "Listening…";
+  const color = muted ? "text-white/40" : aiSpeaking ? "text-emerald-400" : "text-accent";
+
   return (
-    <div className="w-full max-w-sm rounded-xl border border-border bg-card p-4 text-left text-foreground">
-      <p className="text-sm font-semibold">Overall score: {feedback.overallScore}/100</p>
-      <Detail label="Fluency" value={feedback.fluency} />
-      <Detail label="Grammar" value={feedback.grammarAccuracy} />
-      <Detail label="Vocabulary" value={feedback.vocabularyLevel} />
-      <Detail label="Confidence & tone" value={feedback.confidenceTone} />
-      {feedback.correctedExamples.length > 0 && (
-        <div className="mt-2">
-          <p className="text-xs font-semibold text-muted">Corrected examples</p>
-          <ul className="mt-1 flex flex-col gap-1 text-sm">
-            {feedback.correctedExamples.map((ex, i) => (
-              <li key={i}>
-                <span className="text-danger line-through">{ex.original}</span> →{" "}
-                <span className="text-accent">{ex.corrected}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {feedback.newVocabulary.length > 0 && (
-        <div className="mt-2">
-          <p className="text-xs font-semibold text-muted">New vocabulary (added to your Vocabulary Bank)</p>
-          <ul className="mt-1 flex flex-col gap-1 text-sm">
-            {feedback.newVocabulary.map((v, i) => (
-              <li key={i}>
-                <span className="font-medium">{v.word}</span> — {v.definition}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <Detail label="Focus for next time" value={feedback.actionItem} />
+    <div className="flex flex-col items-center gap-0.5">
+      <p className={`text-sm font-medium ${color}`}>{text}</p>
+      {modelLabel && <p className="text-xs text-white/30">{modelLabel}</p>}
     </div>
   );
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
+/**
+ * Visual center of the call screen: a ring that scales with live mic amplitude while the user
+ * is expected to talk, a pulsing green ring while the model is speaking, and a static muted
+ * state. Replaces the old static "Live" badge, which gave no indication anything was happening
+ * turn-to-turn — the actual UX complaint behind the reported "too much delay."
+ */
+function CallOrb({
+  aiSpeaking,
+  muted,
+  connecting,
+  levelRingRef,
+}: {
+  aiSpeaking: boolean;
+  muted: boolean;
+  connecting: boolean;
+  levelRingRef: React.RefObject<HTMLDivElement | null>;
+}) {
   return (
-    <div className="mt-2">
-      <p className="text-xs font-semibold text-muted">{label}</p>
-      <p className="text-sm">{value}</p>
+    <div className="relative flex h-28 w-28 items-center justify-center">
+      {connecting && <div className="absolute inset-0 animate-ping rounded-full bg-white/10" />}
+      {aiSpeaking && (
+        <>
+          <div className="absolute inset-0 animate-ping rounded-full bg-emerald-400/25" />
+          <div className="absolute inset-2 animate-pulse rounded-full bg-emerald-400/15" />
+        </>
+      )}
+      {!connecting && !aiSpeaking && !muted && (
+        <div
+          ref={levelRingRef}
+          className="absolute inset-0 rounded-full bg-accent/25"
+          style={{ transform: "scale(1)", opacity: 0.25, transition: "transform 60ms linear, opacity 60ms linear" }}
+        />
+      )}
+      <div
+        className={`relative flex h-16 w-16 items-center justify-center rounded-full transition-colors ${
+          muted ? "bg-white/15" : aiSpeaking ? "bg-emerald-500" : "bg-accent"
+        }`}
+      >
+        {muted ? <MicOffIcon /> : aiSpeaking ? <SpeakerWaveIcon /> : <MicIcon />}
+      </div>
     </div>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 11a7 7 0 0014 0M12 18v3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MicOffIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 11a7 7 0 0014 0M12 18v3" strokeLinecap="round" />
+      <path d="M3 3l18 18" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SpeakerWaveIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+      <path d="M4 10v4h3l4 4V6l-4 4H4z" strokeLinejoin="round" />
+      <path d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12" strokeLinecap="round" />
+    </svg>
   );
 }
 

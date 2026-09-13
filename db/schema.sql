@@ -108,6 +108,10 @@ CREATE TABLE IF NOT EXISTS summaries (
   weaknesses TEXT,
   score INT,
   action_item TEXT,
+  -- Everything else Gemini generated for this session's feedback (mistake-by-mistake
+  -- corrections, tone/fluency notes, vocabulary suggestions, etc.) that doesn't have its own
+  -- column — shown in full on the session/entry detail page, not just this row's summary.
+  details JSON NULL,
   date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

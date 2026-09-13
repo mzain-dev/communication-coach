@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { WRITING_CATEGORIES, DIFFICULTIES, type WritingCategory, type Difficulty } from "@/lib/constants";
 import type { WritingFeedbackResult } from "@/lib/writing";
+import { WritingFeedbackCard } from "@/components/WritingFeedbackCard";
 
 type Stage = "pick" | "prompt" | "write" | "feedback";
 
@@ -191,53 +192,9 @@ export function WritingPractice({ hasApiKey }: { hasApiKey: boolean }) {
   if (stage === "feedback" && feedback) {
     return (
       <div className="mx-auto flex max-w-lg flex-col gap-4 p-4 pb-24">
-        <div>
-          <h1 className="text-xl font-semibold">Feedback</h1>
-          <p className="text-sm text-muted">Clarity score: {feedback.clarityScore}/100</p>
-        </div>
+        <h1 className="text-xl font-semibold">Feedback</h1>
 
-        <Section title="Tone">{feedback.tone}</Section>
-
-        {feedback.grammarCorrections.length > 0 && (
-          <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs font-semibold text-muted">Grammar corrections</p>
-            <ul className="mt-2 flex flex-col gap-2 text-sm">
-              {feedback.grammarCorrections.map((c, i) => (
-                <li key={i}>
-                  <p>
-                    <span className="text-danger line-through">{c.original}</span> →{" "}
-                    <span className="text-accent">{c.corrected}</span>
-                  </p>
-                  <p className="text-xs text-muted">{c.explanation}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <Section title="Sentence & phrasing suggestions">{feedback.sentenceSuggestions}</Section>
-        <Section title="Vocabulary upgrades">{feedback.vocabularySuggestions}</Section>
-
-        {feedback.newVocabulary.length > 0 && (
-          <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-xs font-semibold text-muted">New vocabulary (added to your Vocabulary Bank)</p>
-            <ul className="mt-2 flex flex-col gap-2 text-sm">
-              {feedback.newVocabulary.map((v, i) => (
-                <li key={i}>
-                  <span className="font-medium">{v.word}</span> — {v.definition}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <details className="rounded-xl border border-border bg-card p-4">
-          <summary className="cursor-pointer text-sm font-semibold">Professional rewrite (for comparison)</summary>
-          <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{feedback.professionalVersion}</p>
-        </details>
-
-        <Section title="Strengths">{feedback.strengths}</Section>
-        <Section title="Focus for next time">{feedback.actionItem}</Section>
+        <WritingFeedbackCard feedback={feedback} />
 
         <button onClick={reset} className="rounded-xl bg-accent py-3.5 text-base font-semibold text-accent-foreground">
           Write another
@@ -247,13 +204,4 @@ export function WritingPractice({ hasApiKey }: { hasApiKey: boolean }) {
   }
 
   return null;
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <p className="text-xs font-semibold text-muted">{title}</p>
-      <p className="mt-1 text-sm">{children}</p>
-    </div>
-  );
 }

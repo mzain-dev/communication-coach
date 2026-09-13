@@ -29,7 +29,7 @@ export async function generateListeningContent(
         role: "user",
         parts: [
           {
-            text: `Write a short ${typeLabel.toLowerCase()} (6-10 lines) in English about "${topic}", at ${difficulty} difficulty, for a language learner's listening practice. If it's a dialogue, alternate between two named speakers. If it's a news summary or monologue, use a single speaker named "Narrator". Then write 4 multiple-choice comprehension questions (4 choices each, one correct) based only on the content. Also list 3-6 useful vocabulary words that appeared in the content, each with a simple definition and an example sentence (can reuse the content's sentence).`,
+            text: `Write a ${typeLabel.toLowerCase()} in English about "${topic}", at ${difficulty} difficulty, for a language learner's listening practice. This needs to be substantial: aim for roughly 550-800 words total across all lines, which reads aloud in about 3 to 5 minutes at a natural speaking pace — that likely means 20-35+ lines with real developed content (multiple points, examples, or exchanges), not a short exchange. If it's a dialogue, alternate between two named speakers with a real back-and-forth. If it's a news summary or monologue, use a single speaker named "Narrator" and develop the topic with several distinct points or sections. Then write 4 multiple-choice comprehension questions (4 choices each, one correct) based only on the content. Also list 3-6 useful vocabulary words that appeared in the content, each with a simple definition and an example sentence (can reuse the content's sentence).`,
           },
         ],
       },

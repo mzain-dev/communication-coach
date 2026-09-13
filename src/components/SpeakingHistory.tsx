@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useNotifications } from "@/components/Notifications";
 
 type SessionRow = {
   id: number;
@@ -13,6 +14,7 @@ type SessionRow = {
 };
 
 export function SpeakingHistory() {
+  const { confirm, toast } = useNotifications();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -24,9 +26,17 @@ export function SpeakingHistory() {
   }, []);
 
   async function handleDelete(id: number, name: string) {
-    if (!confirm(`Delete this session ("${name}")? This can't be undone.`)) return;
-    setSessions((prev) => prev.filter((s) => s.id !== id));
-    await fetch(`/api/speaking/sessions/${id}`, { method: "DELETE" });
+    const ok = await confirm(`Delete this session ("${name}")? This can't be undone.`);
+    if (!ok) return;
+    const prev = sessions;
+    setSessions((s) => s.filter((session) => session.id !== id));
+    try {
+      const res = await fetch(`/api/speaking/sessions/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+    } catch {
+      setSessions(prev);
+      toast("Couldn't delete this session — please try again.");
+    }
   }
 
   return (

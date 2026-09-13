@@ -22,7 +22,7 @@ function formatLastActive(lastLoginAt: string | null): string {
   return `Last active ${days} days ago`;
 }
 
-export default function AdminUsersPage() {
+export default function ManageUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -35,14 +35,14 @@ export default function AdminUsersPage() {
 
   async function loadUsers() {
     setLoading(true);
-    const res = await fetch("/api/admin/users");
+    const res = await fetch("/api/manage/users");
     const data = await res.json();
     setUsers(data.users ?? []);
     setLoading(false);
   }
 
   useEffect(() => {
-    fetch("/api/admin/users")
+    fetch("/api/manage/users")
       .then((res) => res.json())
       .then((data) => setUsers(data.users ?? []))
       .finally(() => setLoading(false));
@@ -53,7 +53,7 @@ export default function AdminUsersPage() {
     setError(null);
     setCreating(true);
     try {
-      const res = await fetch("/api/admin/users", {
+      const res = await fetch("/api/manage/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, temporaryPassword }),
@@ -74,7 +74,7 @@ export default function AdminUsersPage() {
   }
 
   async function toggleActive(user: UserRow) {
-    await fetch(`/api/admin/users/${user.id}`, {
+    await fetch(`/api/manage/users/${user.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isActive: !user.is_active }),
@@ -84,7 +84,7 @@ export default function AdminUsersPage() {
 
   async function resetPassword(user: UserRow) {
     setResetInfo(null);
-    const res = await fetch(`/api/admin/users/${user.id}`, {
+    const res = await fetch(`/api/manage/users/${user.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ resetPassword: true }),
@@ -157,7 +157,7 @@ export default function AdminUsersPage() {
           {users.map((u) => (
             <li key={u.id} className="rounded-xl border border-border bg-card p-3">
               <div className="flex items-start justify-between gap-2">
-                <Link href={`/admin/users/${u.id}`} className="min-w-0">
+                <Link href={`/manage/users/${u.id}`} className="min-w-0">
                   <p className="truncate text-sm font-medium">{u.name}</p>
                   <p className="truncate text-xs text-muted">{u.email}</p>
                   <p className="text-xs text-muted">{formatLastActive(u.last_login_at)}</p>

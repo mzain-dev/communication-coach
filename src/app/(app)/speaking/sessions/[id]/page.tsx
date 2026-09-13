@@ -2,6 +2,17 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { FeedbackCard, type FeedbackCardData } from "@/components/FeedbackCard";
+
+type StoredSpeakingDetails = {
+  fluency: string;
+  grammarAccuracy: string;
+  vocabularyLevel: string;
+  confidenceTone: string;
+  correctedExamples: { original: string; corrected: string }[];
+  grammarErrors: { errorType: string; example: string }[];
+  newVocabulary: { word: string; definition: string; example: string }[];
+};
 
 export default async function SessionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -29,11 +40,34 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
   if (!sessionRow) notFound();
 
   const summaries = await query<
-    { strengths: string | null; weaknesses: string | null; score: number | null; action_item: string | null }[]
-  >("SELECT strengths, weaknesses, score, action_item FROM summaries WHERE session_id = ? AND session_type = 'speaking'", [
-    id,
-  ]);
+    {
+      strengths: string | null;
+      weaknesses: string | null;
+      score: number | null;
+      action_item: string | null;
+      details: StoredSpeakingDetails | null;
+    }[]
+  >(
+    "SELECT strengths, weaknesses, score, action_item, details FROM summaries WHERE session_id = ? AND session_type = 'speaking'",
+    [id]
+  );
   const summary = summaries[0] ?? null;
+  const details = summary?.details ?? null;
+  const feedback: FeedbackCardData | null = summary
+    ? {
+        overallScore: summary.score ?? 0,
+        strengths: summary.strengths ?? "",
+        weaknesses: summary.weaknesses ?? "",
+        actionItem: summary.action_item ?? "",
+        fluency: details?.fluency ?? "",
+        grammarAccuracy: details?.grammarAccuracy ?? "",
+        vocabularyLevel: details?.vocabularyLevel ?? "",
+        confidenceTone: details?.confidenceTone ?? "",
+        correctedExamples: details?.correctedExamples ?? [],
+        grammarErrors: details?.grammarErrors ?? [],
+        newVocabulary: details?.newVocabulary ?? [],
+      }
+    : null;
 
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4 p-4 pb-24">
@@ -48,28 +82,8 @@ export default async function SessionDetailPage({ params }: { params: Promise<{ 
         </p>
       </div>
 
-      {summary ? (
-        <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-sm font-semibold">Score: {summary.score ?? "—"}/100</p>
-          {summary.strengths && (
-            <div className="mt-2">
-              <p className="text-xs font-semibold text-muted">Strengths</p>
-              <p className="text-sm">{summary.strengths}</p>
-            </div>
-          )}
-          {summary.weaknesses && (
-            <div className="mt-2">
-              <p className="text-xs font-semibold text-muted">Weaknesses</p>
-              <p className="text-sm">{summary.weaknesses}</p>
-            </div>
-          )}
-          {summary.action_item && (
-            <div className="mt-2">
-              <p className="text-xs font-semibold text-muted">Focus for next time</p>
-              <p className="text-sm">{summary.action_item}</p>
-            </div>
-          )}
-        </div>
+      {feedback ? (
+        <FeedbackCard feedback={feedback} />
       ) : (
         <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted">
           No feedback was generated for this session.

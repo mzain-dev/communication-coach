@@ -105,10 +105,27 @@ export async function POST(request: Request) {
     const apiKey = await getDecryptedApiKeyForUser(session.sub);
     const feedback = await generateSpeakingFeedback(apiKey, transcript, feedbackSubjectName, focusMode);
 
+    const details = {
+      fluency: feedback.fluency,
+      grammarAccuracy: feedback.grammarAccuracy,
+      vocabularyLevel: feedback.vocabularyLevel,
+      confidenceTone: feedback.confidenceTone,
+      correctedExamples: feedback.correctedExamples,
+      grammarErrors: feedback.grammarErrors,
+      newVocabulary: feedback.newVocabulary,
+    };
     await query(
-      `INSERT INTO summaries (user_id, session_id, session_type, strengths, weaknesses, score, action_item)
-       VALUES (?, ?, 'speaking', ?, ?, ?, ?)`,
-      [session.sub, sessionId, feedback.strengths, feedback.weaknesses, feedback.overallScore, feedback.actionItem]
+      `INSERT INTO summaries (user_id, session_id, session_type, strengths, weaknesses, score, action_item, details)
+       VALUES (?, ?, 'speaking', ?, ?, ?, ?, ?)`,
+      [
+        session.sub,
+        sessionId,
+        feedback.strengths,
+        feedback.weaknesses,
+        feedback.overallScore,
+        feedback.actionItem,
+        JSON.stringify(details),
+      ]
     );
     await recordGrammarErrors(session.sub, sessionId, "speaking", feedback.grammarErrors);
     await recordVocabulary(session.sub, feedback.newVocabulary, "speaking");

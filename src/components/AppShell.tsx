@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { NotificationsProvider } from "@/components/Notifications";
 
 type NavItem = { href: string; label: string; adminOnly?: boolean };
 
@@ -17,7 +18,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/vocabulary", label: "Vocabulary Bank" },
   { href: "/grammar", label: "Grammar Tracker" },
   { href: "/settings", label: "Settings" },
-  { href: "/admin/users", label: "User Management", adminOnly: true },
+  { href: "/manage/users", label: "User Management", adminOnly: true },
 ];
 
 export function AppShell({
@@ -40,6 +41,7 @@ export function AppShell({
   const items = NAV_ITEMS.filter((item) => !item.adminOnly || user.role === "admin");
 
   return (
+    <NotificationsProvider>
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-card px-4">
         <button
@@ -110,5 +112,6 @@ export function AppShell({
 
       <main className="flex-1">{children}</main>
     </div>
+    </NotificationsProvider>
   );
 }

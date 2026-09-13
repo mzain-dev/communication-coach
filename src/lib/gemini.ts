@@ -42,9 +42,20 @@ export async function createEphemeralLiveToken(apiKey: string, modelId: string, 
         model: modelId,
         config: {
           responseModalities: [Modality.AUDIO],
-          inputAudioTranscription: {},
-          outputAudioTranscription: {},
+          // Hinted (not enforced) to English — the model is instructed to always reply in
+          // English regardless of what language the user speaks, so its own audio output is
+          // reliably English; this just biases the transcriber toward reading it correctly.
+          inputAudioTranscription: { languageCodes: ["en-US"] },
+          outputAudioTranscription: { languageCodes: ["en-US"] },
           systemInstruction: systemPrompt,
+          // Tightened from Gemini's default so the model commits to "the user is done talking"
+          // sooner — this is the main knob for perceived response delay in a voice call. Traded
+          // off against cutting someone off if they pause mid-sentence for over ~500ms.
+          realtimeInputConfig: {
+            automaticActivityDetection: {
+              silenceDurationMs: 500,
+            },
+          },
         },
       },
     },
@@ -125,7 +136,7 @@ export async function generateSpeakingFeedback(
         role: "user",
         parts: [
           {
-            text: `You are an English communication coach. ${focusInstruction} Here is the transcript (their turns and the AI partner's turns):\n\n${transcript}\n\nAnalyze the student's spoken English only (ignore the AI partner's lines) and return feedback. Also classify each recurring grammar mistake by type (e.g. "tense", "articles", "prepositions", "subject-verb agreement") with one example, list 2-5 useful or advanced words the student used or should learn from this session, and estimate their overall speaking proficiency level (${PROFICIENCY_LEVELS.join(" / ")}) based on grammar accuracy, vocabulary range, fluency, and idea complexity.`,
+            text: `You are an English communication coach. ${focusInstruction} Here is the transcript (their turns and the AI partner's turns):\n\n${transcript}\n\nAnalyze the student's spoken English only (ignore the AI partner's lines) and return feedback. Go through their turns line by line and list EVERY grammar, word-choice, or phrasing mistake you find in correctedExamples as original (quote their exact words) → corrected pairs — don't stop at one or two, be exhaustive, this exhaustive list is the most useful part of the feedback for them. Separately, classify each recurring mistake by type (e.g. "tense", "articles", "prepositions", "subject-verb agreement") with one representative example in grammarErrors. List 2-5 useful or advanced words the student used or should learn from this session, and estimate their overall speaking proficiency level (${PROFICIENCY_LEVELS.join(" / ")}) based on grammar accuracy, vocabulary range, fluency, and idea complexity.`,
           },
         ],
       },
@@ -141,6 +152,8 @@ export async function generateSpeakingFeedback(
           confidenceTone: { type: "string" },
           correctedExamples: {
             type: "array",
+            description:
+              "Every specific mistake the student made in this session, as original (their exact words) → corrected pairs. List all of them, not just a couple — be thorough, this is the main mistakes-and-suggestions list shown to the student.",
             items: {
               type: "object",
               properties: {

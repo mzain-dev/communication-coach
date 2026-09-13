@@ -68,9 +68,17 @@ export async function POST(request: Request) {
     const exerciseId = insertResult.insertId;
 
     await query(
-      `INSERT INTO summaries (user_id, session_id, session_type, strengths, weaknesses, score, action_item)
-       VALUES (?, ?, 'listening', ?, ?, ?, ?)`,
-      [session.sub, exerciseId, review.strengths, review.misunderstood, review.score, review.actionItem]
+      `INSERT INTO summaries (user_id, session_id, session_type, strengths, weaknesses, score, action_item, details)
+       VALUES (?, ?, 'listening', ?, ?, ?, ?, ?)`,
+      [
+        session.sub,
+        exerciseId,
+        review.strengths,
+        review.misunderstood,
+        review.score,
+        review.actionItem,
+        JSON.stringify({ vocabulary }),
+      ]
     );
 
     // New vocabulary heard in the clip is auto-sent to the Vocabulary Bank (Module 3 spec).
